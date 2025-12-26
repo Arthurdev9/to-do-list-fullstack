@@ -18,7 +18,7 @@ import {
 import EditTask from '@/components/edit-task'
 import { getTasks } from '@/actions/get-tasks-from-db'
 import { Tasks } from '@/generated/prisma'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NewTask } from '@/actions/add-task'
 import { DeleteTask } from '@/actions/delete-task'
 import { toast } from 'sonner'
@@ -31,7 +31,6 @@ export default function Home() {
   const [task, setTask] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all')
-  const [filteredTasks, setFilteredTasks] = useState<Tasks[]>([])
 
   const handleGetTasks = async () => {
     try {
@@ -109,38 +108,35 @@ export default function Home() {
   }
 
   const clearCompletedTasks = async () => {
-    const deletedTasks = await deleteCompletedTasks()
-
-    if (!deletedTasks) return
-
-    setFilteredTasks(deletedTasks)
+    await deleteCompletedTasks()
+    toast.success('Tarefas concluídas removidas')
+    await handleGetTasks()
   }
+
+  const progress =
+    taskList.length === 0
+      ? 0
+      : (taskList.filter((task) => task.done).length / taskList.length) * 100
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     handleGetTasks()
   }, [])
 
-  useEffect(() => {
+  const filteredTasks = useMemo(() => {
     switch (currentFilter) {
-      case 'all':
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setFilteredTasks(taskList)
-        break
       case 'pending':
-        const pendingTasks = taskList.filter((task) => !task.done)
-        setFilteredTasks(pendingTasks)
-        break
+        return taskList.filter((task) => !task.done)
       case 'completed':
-        const completedTasks = taskList.filter((task) => task.done)
-        setFilteredTasks(completedTasks)
-        break
+        return taskList.filter((task) => task.done)
+      default:
+        return taskList
     }
-  }, [currentFilter, taskList])
+  }, [taskList, currentFilter])
 
   return (
     <main className="w-full h-screen bg-gray-100 flex justify-center items-center">
-      <Card className="w-lg">
+      <Card className="w-full md:w-lg">
         <CardHeader className="flex gap-2">
           <Input
             placeholder="Adicionar tarefa"
@@ -240,13 +236,7 @@ export default function Home() {
           <div className="h-2 w-full bg-gray-100 mt-4 rounded-md">
             <div
               className="h-full bg-blue-500 rounded-md"
-              style={{
-                width: `${
-                  (taskList.filter((task) => task.done).length /
-                    taskList.length) *
-                  100
-                }% `
-              }}
+              style={{ width: `${progress}%` }}
             ></div>
           </div>
           <div className="flex justify-end items-center mt-2 gap-2">
